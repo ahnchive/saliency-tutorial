@@ -10,16 +10,20 @@ import argparse
 import pysaliency
 
 PYSALIENCY_LOCATION = os.path.dirname(pysaliency.__file__)
-
+IMAGE_SIZE = (320, 512)
 
 def normalize_map(m, softmax=False, alpha=0.05):
     if softmax:
-        # softmax with alpha
-        m = torch.Tensor(m).flatten()
-        m = F.softmax(m/alpha)
-        m = np.reshape(m.numpy(), (320, 512))
-        #         m = np.exp(m/alpha) / np.sum(np.exp(m/alpha)) 
-
+        # Flatten the input array
+        m_flat = m.flatten()
+        
+        # Compute softmax with scaling by alpha
+        exp_m = np.exp(m_flat / alpha)
+        softmax_m = exp_m / np.sum(exp_m)
+        
+        # Reshape the softmax output back to original shape (320, 512)
+        m = np.reshape(softmax_m, IMAGE_SIZE)
+    
     # min-max normalization
     m = (m - m.min()) / (m.max() - m.min()) * 255
     m = m.astype(np.uint8)
@@ -58,8 +62,9 @@ def process_images(input_folder, output_folder):
     # saliency_model = pysaliency.IttiKoch(location='models', saliency_toolbox_archive='../resources/saliency_toolbox.zip')
     saliency_model = pysaliency.IttiKoch(location=f'{PYSALIENCY_LOCATION}/scripts/models',  saliency_toolbox_archive='../resources/saliency_toolbox.zip')
 
-    # List all files in the input folder
-    input_files = os.listdir(input_folder)
+    # List all jpg files in the input folder
+    input_files = [file for file in os.listdir(input_folder) if file.endswith('.jpg')]
+    
 
     print(f'Saliency generated for {len(input_files)} images')
     # Process each file
@@ -71,7 +76,7 @@ def process_images(input_folder, output_folder):
 
         # Compute the saliency map
         saliency_map = saliency_model.saliency_map(image_np)
-        saliency_map = normalize_map(saliency_map, softmax=False, alpha=0.05)
+        saliency_map = normalize_map(saliency_map, softmax=False)
 
         # Save the saliency map
         output_path = os.path.join(output_folder, filename)
